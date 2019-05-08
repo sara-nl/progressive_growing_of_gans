@@ -1,0 +1,21 @@
+#!/bin/bash
+
+#SBATCH -t 5-00:00:00
+#SBATCH -N 1
+#SBATCH -p gpu
+#SBATCH --gres=gpu:titanv:4
+
+# Copy dataset to scratch
+mkdir -p "$TMPDIR"/CelebA
+cp -r /nfs/managed_datasets/CelebA/CelebAHQ_tfrecord "$TMPDIR"/CelebA
+
+# Go to workdir
+workdir=/home/casparl/NKI
+cd $workdir
+
+# Load environment
+source install_environment/install_prog_gan_env.sh
+
+# Run training
+cd progressive_growing_of_gans
+python train.py
