@@ -18,8 +18,8 @@ class EasyDict(dict):
 #----------------------------------------------------------------------------
 # Paths.
 
-data_dir = '/scratch/CelebA/'
-result_dir = '/home/casparl/NKI/results/'
+data_dir = '/projects/2/managed_datasets/CelebA/'
+result_dir = '/projects/1/casparl/NKI/results'
 
 #----------------------------------------------------------------------------
 # TensorFlow options.
