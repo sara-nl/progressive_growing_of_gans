@@ -314,7 +314,7 @@ def create_chestxray(tfrecord_dir, chestxray_dir):
         order = tfr.choose_shuffled_order()
         for idx in range(order.size):
             img = np.asarray(images[order[idx]])
-            if img.shape != (1024, 1024)
+            if img.shape != (1024, 1024):
                 print('ERROR: incorrect image shape (%s) for image %s' % (img.shape, order[idx]))
                 assert img.shape == (1024, 1024)
             img = img.reshape(1,img.shape[0],img.shape[1]) # cuDNN order: Channel-height-width (CHW), see also the img.transpose in create_celeba
