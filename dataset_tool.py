@@ -282,6 +282,47 @@ def compare(tfrecord_dir_a, tfrecord_dir_b, ignore_labels):
 
 #----------------------------------------------------------------------------
 
+def create_chestxray(tfrecord_dir, chestxray_dir):
+    print('Loading chestXray from "%s"' % chestxray_dir)
+    # Listing all images*.zip's
+    glob_pattern = os.path.join(chestxray_dir, 'images*.zip')
+    zipfiles = sorted(glob.glob(glob_pattern))
+    images = []
+    import zipfile
+    import re
+    pattern = re.compile(".*\.png")
+    # Loop through all zipfiles
+    for filename in zipfiles:
+        print('Loading from zipfile: "%s"' % filename)
+        with zipfile.ZipFile(filename, 'r') as zip:
+            # For each file in the zipfile...
+            for entry in zip.infolist():
+                # Check if the file matches the pattern, i.e. is a *.png file. If so, open it, and append the result to images.
+                if pattern.match(entry.filename):
+                    with zip.open(entry) as file:
+                        images.append(PIL.Image.open(file))
+
+    # ChestXray should contain 112120 images
+    print('Loaded %s images' % len(images))
+    chestxray_imagecount = 112120
+    if len(images) != chestxray_imagecount:
+        print('ERROR: ChestXray dataset should contain 112120 images. Exiting.')
+        assert len(images) == chestxray_imagecount
+    
+    # All images were loaded, now creating TFrecords for all resolutions:
+    with TFRecordExporter(tfrecord_dir, chestxray_imagecount) as tfr:
+        order = tfr.choose_shuffled_order()
+        for idx in range(order.size):
+            img = np.asarray(images[order[idx]])
+            img = img.reshape(1,img.shape[0],img.shape[1]) # cuDNN order: Channel-height-width (CHW), see also the img.transpose in create_celeba
+            print(img.shape)
+            if idx == 1:
+                print(img.shape)
+            assert img.shape == (1, 1024, 1024)
+            tfr.add_image(img)
+
+#----------------------------------------------------------------------------
+
 def create_mnist(tfrecord_dir, mnist_dir):
     print('Loading MNIST from "%s"' % mnist_dir)
     import gzip
