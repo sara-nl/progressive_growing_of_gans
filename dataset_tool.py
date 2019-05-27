@@ -284,6 +284,7 @@ def compare(tfrecord_dir_a, tfrecord_dir_b, ignore_labels):
 
 def create_chestxray(tfrecord_dir, chestxray_dir):
     print('Loading chestXray from "%s"' % chestxray_dir)
+    print('WARNING: this function needs at least 50 GB to run, as it keeps all compressed zips for the CHESTXRAY dataset in memory, in order to write them to TFRecords in a random order')
     # Listing all images*.zip's
     glob_pattern = os.path.join(chestxray_dir, 'images_*.zip')
     zipfiles = sorted(glob.glob(glob_pattern))
@@ -292,7 +293,6 @@ def create_chestxray(tfrecord_dir, chestxray_dir):
     import zipfile
     import re
     import math
-    import gc
     pattern = re.compile(".*\.png")
     # Loop through all zipfiles
     for filename in zipfiles:
@@ -312,66 +312,11 @@ def create_chestxray(tfrecord_dir, chestxray_dir):
         print('ERROR: ChestXray dataset should contain 112120 images. Exiting.')
         assert len(images) == chestxray_imagecount
     
-#     # Just to loop through all images to check dimensions:
-#     for idx in range(2000):
-#        if (idx/1000) == math.floor(idx/1000):
-#            # Only for IPython: this will clear the 'img' numpy array after every X images
-#            %reset_selective -f img
-#            print('At image %s' % idx)
-#        img = np.copy(images[idx])
-#        if img.shape != (1024, 1024):
-#            # Check if this image was stored as RGBa, with a the alpha channel:
-#            if img.shape == (1024, 1024, 4):
-#                channel01Equal = (img[:,:,0]==img[:,:,1])
-#                channel02Equal = (img[:,:,0]==img[:,:,2])
-#                channel3is255 = (img[:,:,3]==255)
-#                if (channel01Equal.all() & channel02Equal.all() & channel3is255.all()):
-#                    # This was an RGBa image, with the RGB channels equal and alpha channel 255. Thus, we can just interpret it as greyscale by selecting the R channel
-#                    img = img[:,:,0]
-#                    img = img.reshape(1,img.shape[0], img.shape[1]) # cuDNN order: Channel-height-width (CHW), see also the img.transpose in create_celeba
-#                else:
-#                    print('ERROR: incorrect image shape (%s) for image %s' % (img.shape, idx))
-#                    imgUncommonDims.append(img)
-#            else:
-#                print('ERROR: incorrect image shape (%s) for image %s' % (img.shape, idx))
-#                imgUncommonDims.append(img)
-#        else:
-#            img = img.reshape(1,img.shape[0], img.shape[1]) # cuDNN order: Channel-height-width (CHW), see also the img.transpose in create_celeba
-#        # By this point, the img.shape SHOULD be as we expect it: 1 channel x 1024 pixels x 1024 pixels
-#        assert img.shape == (1, 1024, 1024)
-
-#     import subprocess
-#     import resource
-#     import tracemalloc
-#     host = subprocess.getoutput("hostname")
-#     node_memory = {host: { i.split(":")[0] : i.split(":")[1].lstrip() for i in subprocess.getoutput("cat /proc/meminfo").split("\n")[:-1] }}
-#     tracemalloc.start()
-
     # All images were loaded, now creating TFrecords for all resolutions:
     with TFRecordExporter(tfrecord_dir, chestxray_imagecount) as tfr:
         order = tfr.choose_shuffled_order()
         for idx in range(order.size):
             img = np.asarray(images[order[idx]])
-#            if (idx/100) == math.floor(idx/100):
-#                print('At image %s' % idx)
-#                print('Ref count of img: %s' % sys.getrefcount(img))
-#                print('Addres of images[order[idx]]: %s' % id(images[order[idx]]))
-#                print('Addres of img: %s' % id(img))
-#                gc.collect()
-#             del images[order[idx]]
-#            del img
-#            print('after img')
-
-#        print('After for loop...')
-#        del images
-#        print('bla')
-#     snapshot = tracemalloc.take_snapshot()
-#     top_stats = snapshot.statistics(357)
-#     tracemalloc.stop()
-#     max_rss = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-#     print("maxrss is {0}".format(max_rss))
-#     print("top_stats is {0}".format(top_stats))
-
             if img.shape != (1024, 1024):
                 # Check if this image was stored as RGBa, with a the alpha channel:
                 if img.shape == (1024, 1024, 4):
@@ -395,29 +340,6 @@ def create_chestxray(tfrecord_dir, chestxray_dir):
             tfr.add_image(img)
             # Make sure that the decompressed image is now removed, otherwise it will keep taking up space:
             images[order[idx]] = None
-
-def get_greyscale_from_pillow(pillowImage, tfRecordExporter):
-    img = np.asarray(pillowImage)
-    if img.shape != (1024, 1024):
-        # Check if this image was stored as RGBa, with a the alpha channel:
-        if img.shape == (1024, 1024, 4):
-            channel01Equal = (img[:,:,0]==img[:,:,1])
-            channel02Equal = (img[:,:,0]==img[:,:,2])
-            channel3is255 = (img[:,:,3]==255)
-            if (channel01Equal.all() & channel02Equal.all() & channel3is255.all()):
-                # This was an RGBa image, with the RGB channels equal and alpha channel 255. Thus, we can just interpret it as greyscale by selecting the R channel
-                img = img[:,:,0]
-                img = img.reshape(1,img.shape[0], img.shape[1]) # cuDNN order: Channel-height-width (CHW), see also the img.transpose in create_celeba
-            else:
-                print('ERROR: incorrect image shape (%s) for image %s' % (img.shape, order[idx]))
-        else:
-            print('ERROR: incorrect image shape (%s) for image %s' % (img.shape, order[idx]))
-    else:
-        img = img.reshape(1,img.shape[0], img.shape[1]) # cuDNN order: Channel-height-width (CHW), see also the img.transpose in create_celeba
-    # By this point, the img.shape SHOULD be as we expect it: 1 channel x 1024 pixels x 1024 pixels
-    assert img.shape == (1, 1024, 1024)
-#    tfr.add_image(img)
-#    return img
 
 #----------------------------------------------------------------------------
 
