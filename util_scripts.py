@@ -119,6 +119,13 @@ def generate_training_video(run_id, duration_sec=20.0, time_warp=1.5, mp4=None, 
             img = png_cache[1]
         else:
             img = scipy.misc.imread(png)
+            # Check if the img is greyscale. If so, it needs to be converted to RGB, since MoviePy expects it in that format
+            if img.ndim == 2:
+                tmpimg = img
+                img = np.zeros([tmpimg.shape[0], tmpimg.shape[1], 3], tmpimg.dtype)
+                img[:,:,0] = tmpimg
+                img[:,:,1] = tmpimg
+                img[:,:,2] = tmpimg
             while img.shape[1] > 1920 or img.shape[0] > 1080:
                 img = img.astype(np.float32).reshape(img.shape[0]//2, 2, img.shape[1]//2, 2, -1).mean(axis=(1,3))
             png_cache[:] = [png, img]
